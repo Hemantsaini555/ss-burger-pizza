@@ -1,0 +1,10 @@
+{
+  "name": "SS Burger & Pizza",
+  "short_name": "SS Burger",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f5f1",
+  "theme_color": "#171717",
+  "description": "Order from SS Burger & Pizza, Talera."
+}

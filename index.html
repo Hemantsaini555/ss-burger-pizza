@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171717">
+  <meta name="description" content="Order fresh burgers, pizzas, momos and more from SS Burger & Pizza, Talera.">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <title>SS Burger & Pizza</title>
+  <style>
+    :root{--bg:#f7f5f1;--ink:#1d1d1d;--muted:#6b6b6b;--accent:#e44b22;--card:#fff;--line:#e8e2da}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    header{background:#171717;color:#fff;padding:22px 16px 18px;position:sticky;top:0;z-index:4}
+    header h1{margin:0;font-size:23px}header p{margin:5px 0 0;color:#ddd;font-size:13px}
+    main{max-width:760px;margin:auto;padding:14px 13px 110px}
+    .notice{background:#fff4e9;border:1px solid #f3d5b9;border-radius:13px;padding:12px;font-size:13px;margin-bottom:14px}
+    .category{margin:19px 0 8px;font-size:18px}
+    .item{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px;display:flex;align-items:center;gap:10px;margin:8px 0}
+    .item .info{flex:1}.item b{display:block;font-size:15px}.price{color:var(--muted);font-size:14px;margin-top:3px}
+    button{border:0;border-radius:10px;padding:9px 13px;font-weight:700;background:var(--accent);color:#fff;font-size:14px}
+    button.secondary{background:#eee;color:#222}button:disabled{opacity:.45}
+    .qty{display:flex;align-items:center;gap:9px}.qty button{padding:6px 10px;min-width:32px}
+    .cartbar{position:fixed;bottom:0;left:0;right:0;background:#171717;color:white;padding:12px 14px calc(12px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;z-index:5}
+    .cartbar small{display:block;color:#ddd}.cartbar button{background:#ff7045}
+    dialog{border:0;border-radius:18px;width:min(94vw,540px);max-height:88vh;padding:0;box-shadow:0 10px 40px #0005}
+    dialog::backdrop{background:#0008}.modalhead{padding:16px;background:#171717;color:#fff}.modalbody{padding:16px;overflow:auto;max-height:70vh}
+    label{display:block;font-size:13px;font-weight:650;margin:12px 0 5px}
+    input,select,textarea{width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;font:inherit;background:white}
+    textarea{min-height:65px}.rowline{display:flex;justify-content:space-between;padding:6px 0}
+    .muted{color:var(--muted);font-size:13px}.full{width:100%;margin-top:12px;padding:13px}
+    .status{padding:10px;background:#f0f0f0;border-radius:10px;font-size:13px;margin-top:10px}
+    a{color:inherit}
+  </style>
+</head>
+<body>
+<header>
+  <h1>🍔 SS Burger & Pizza</h1>
+  <p>Talera, Bundi · Freshly made, just for you</p>
+</header>
+<main>
+  <div class="notice">Delivery within 5 km of our cafe · Delivery charge ₹20 · Takeaway also available. Choose your items and place your order.</div>
+  <div id="menu"></div>
+</main>
+<div class="cartbar">
+  <div><b id="cartCount">0 items · ₹0</b><small>Review your order</small></div>
+  <button onclick="openCart()">View cart →</button>
+</div>
+
+<dialog id="cartDialog">
+  <div class="modalhead"><b>Your order</b><button class="secondary" style="float:right" onclick="cartDialog.close()">Close</button></div>
+  <div class="modalbody">
+    <div id="cartLines"></div>
+    <div class="rowline"><b>Subtotal</b><b id="subtotal">₹0</b></div>
+    <form id="orderForm">
+      <label for="customerName">Your name</label><input id="customerName" required maxlength="60">
+      <label for="phone">Mobile number</label><input id="phone" inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" required placeholder="10-digit mobile number">
+      <label for="orderType">Order type</label><select id="orderType"><option value="delivery">Home delivery</option><option value="takeaway">Takeaway</option></select>
+      <div id="deliveryFields">
+        <label for="address">Delivery address</label><textarea id="address" placeholder="House/area/landmark" required></textarea>
+        <button type="button" class="secondary full" id="locateBtn" onclick="checkDeliveryArea()">Check my delivery location</button>
+        <div id="distanceStatus" class="status">For delivery, allow location access to check whether your address is within 5 km.</div>
+      </div>
+      <label for="payment">Payment method</label><select id="payment"><option value="UPI">UPI (Pay after placing order)</option><option value="Cash at cafe">Cash at cafe / on delivery</option></select>
+      <label for="notes">Notes (optional)</label><textarea id="notes" maxlength="250" placeholder="Less spicy, no onion, etc."></textarea>
+      <div class="rowline"><span>Delivery charge</span><b id="deliveryCharge">₹0</b></div>
+      <div class="rowline"><b>Total</b><b id="total">₹0</b></div>
+      <button class="full" type="submit">Place order</button>
+      <p class="muted">UPI payments are not automatically verified. The cafe will confirm your order and payment.</p>
+    </form>
+    <div id="orderResult" class="status" hidden></div>
+  </div>
+</dialog>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="./firebase-config.js"></script>
+<script>
+const MENU = [
+["Pizza",[["Onion",129],["Capsicum",129],["Sweet Corn",129],["Paneer",149],["Special",199],["Pizza + French Fries + Pepsi Combo",189]]],
+["Sandwich",[["Mini Sandwich",40],["Jumbo Veggie Sandwich",70],["Jumbo Paneer Sandwich",90]]],
+["Burger",[["Aloo Tikki Burger",50],["Paneer Aloo Tikki Burger",70],["Aloo Tikki Burger + Fries + Pepsi Combo",99]]],
+["Wrap",[["Aloo Tikki Wrap",70],["Paneer Wrap",90]]],
+["Momos",[["Steam Momos (6 pcs)",60],["Steam Momos (8 pcs)",70],["Fry Momos (6 pcs)",60],["Fry Momos (8 pcs)",70]]],
+["Snacks",[["Spring Roll",70],["Salted French Fries",59],["Peri Peri French Fries",69]]],
+["Beverages",[["Cold Coffee Small",50],["Cold Coffee Large",70],["Strawberry Shake",70],["Black Currant Shake",70],["Orange Shake",70],["Green Apple Shake",70],["Butterscotch Shake",70],["Blueberry Shake",90]]],
+["Maggi",[["Masala Maggi",40],["Cheese Maggi",50]]],
+["Patties",[["Masala Patties",30],["Tandoori Patties",40]]],
+["Ice Cream",[["Sheetal Ice Cream Cone/Cup (₹10)",10],["Sheetal Ice Cream Cone/Cup (₹20)",20]]]
+];
+const CAFE={lat:25.3075373,lon:75.7378595,radiusKm:5,deliveryCharge:20,upiId:"paytmqr6obu3d@ptys",payeeName:"SS Burger & Pizza"};
+const cart=new Map();let customerCoords=null;let db=null;let authReady=false;
+const fmt=n=>"₹"+Math.round(n);
+function renderMenu(){
+ const root=document.getElementById("menu");root.innerHTML="";
+ MENU.forEach(([cat,items])=>{const h=document.createElement("h2");h.className="category";h.textContent=cat;root.appendChild(h);
+ items.forEach(([name,price])=>{const el=document.createElement("div");el.className="item";
+ el.innerHTML=`<div class="info"><b>${name}</b><div class="price">${fmt(price)}</div></div><div class="qty"><button class="secondary" aria-label="Remove">−</button><span>0</span><button aria-label="Add">+</button></div>`;
+ const [minus,count,plus]=[el.querySelectorAll("button")[0],el.querySelector("span"),el.querySelectorAll("button")[1]];
+ const update=()=>{const q=cart.get(name)?.qty||0;count.textContent=q;minus.disabled=q===0;updateCartBar();};
+ minus.onclick=()=>{const q=cart.get(name)?.qty||0;if(q<=1)cart.delete(name);else cart.get(name).qty--;update();};
+ plus.onclick=()=>{const old=cart.get(name);cart.set(name,{name,price,qty:(old?.qty||0)+1});update();};update();root.appendChild(el);
+ });});
+}
+function subtotal(){return [...cart.values()].reduce((s,x)=>s+x.price*x.qty,0)}
+function updateCartBar(){const count=[...cart.values()].reduce((s,x)=>s+x.qty,0);document.getElementById("cartCount").textContent=`${count} items · ${fmt(subtotal())}`;}
+function openCart(){if(!cart.size){alert("Please add at least one item.");return;}renderCart();document.getElementById("cartDialog").showModal();}
+function renderCart(){
+ const root=document.getElementById("cartLines");root.innerHTML="";
+ cart.forEach(x=>{const d=document.createElement("div");d.className="rowline";d.innerHTML=`<span>${x.name} × ${x.qty}</span><b>${fmt(x.price*x.qty)}</b>`;root.appendChild(d);});
+ document.getElementById("subtotal").textContent=fmt(subtotal());updateTotal();
+}
+function updateTotal(){const delivery=document.getElementById("orderType").value==="delivery"?CAFE.deliveryCharge:0;document.getElementById("deliveryCharge").textContent=fmt(delivery);document.getElementById("total").textContent=fmt(subtotal()+delivery);}
+document.getElementById("orderType").addEventListener("change",()=>{const delivery=document.getElementById("orderType").value==="delivery";document.getElementById("deliveryFields").hidden=!delivery;document.getElementById("address").required=delivery;updateTotal();});
+async function checkDeliveryArea(){
+ const out=document.getElementById("distanceStatus");out.textContent="Checking your location…";
+ if(!navigator.geolocation){out.textContent="This browser does not support location. You can choose takeaway.";return;}
+ navigator.geolocation.getCurrentPosition(pos=>{
+  const lat=pos.coords.latitude,lon=pos.coords.longitude;customerCoords={lat,lon};
+  const d=distanceKm(lat,lon,CAFE.lat,CAFE.lon);
+  if(d<=CAFE.radiusKm)out.textContent=`You're within our delivery area (${d.toFixed(2)} km from cafe). Delivery available.`;
+  else out.textContent=`You're ${d.toFixed(2)} km away. Delivery is available only within 5 km. Please choose takeaway.`;
+ },err=>{out.textContent="Location permission was not granted. Please allow location access and try again, or choose takeaway.";},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+}
+function distanceKm(a,b,c,d){const rad=x=>x*Math.PI/180;const p=rad(c-a),q=rad(d-b);const z=Math.sin(p/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(q/2)**2;return 6371*2*Math.atan2(Math.sqrt(z),Math.sqrt(1-z));}
+document.getElementById("orderForm").addEventListener("submit",async e=>{
+ e.preventDefault();const type=document.getElementById("orderType").value;
+ if(!cart.size){alert("Your cart is empty.");return;}
+ if(type==="delivery"){
+  if(!customerCoords){alert("Please check your delivery location first.");return;}
+  if(distanceKm(customerCoords.lat,customerCoords.lon,CAFE.lat,CAFE.lon)>CAFE.radiusKm){alert("Your location is outside the 5 km delivery area. Please choose takeaway.");return;}
+ }
+ const name=document.getElementById("customerName").value.trim(),phone=document.getElementById("phone").value.trim();
+ const items=[...cart.values()].map(x=>({name:x.name,qty:x.qty,price:x.price}));
+ const sub=subtotal(),charge=type==="delivery"?CAFE.deliveryCharge:0,total=sub+charge;
+ const payload={customerName:name,phone,orderType:type,address:type==="delivery"?document.getElementById("address").value.trim():"Takeaway",gps:customerCoords||null,payment:document.getElementById("payment").value,upiId:CAFE.upiId,items,subtotal:sub,deliveryCharge:charge,total,notes:document.getElementById("notes").value.trim(),status:"New",paymentStatus:"unverified",createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+ const btn=e.submitter;btn.disabled=true;btn.textContent="Placing order…";
+ try{
+  if(!window.firebaseConfigReady)throw new Error("Firebase setup is incomplete. Ask the app owner to finish Firebase configuration.");
+  if(!authReady)await authReadyPromise;
+  payload.customerUid=firebase.auth().currentUser.uid;
+  const ref=await db.collection("orders").add(payload);
+  document.getElementById("orderResult").hidden=false;
+  document.getElementById("orderResult").textContent=`Order request sent. Your order ID is ${ref.id}. The cafe will contact you to confirm.`;
+  if(payload.payment==="UPI"){
+   const uri=`upi://pay?pa=${encodeURIComponent(CAFE.upiId)}&pn=${encodeURIComponent(CAFE.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent("SS Burger order "+ref.id)}`;
+   setTimeout(()=>{location.href=uri;},900);
+  }
+  cart.clear();renderMenu();renderCart();btn.textContent="Order placed";
+ }catch(err){alert("Could not place order: "+(err.message||err));btn.disabled=false;btn.textContent="Place order";}
+});
+let authReadyPromise=Promise.resolve();
+if(window.firebaseConfigReady){
+ try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();authReadyPromise=firebase.auth().signInAnonymously().then(()=>{authReady=true;});}
+ catch(e){console.error(e);}
+}
+renderMenu();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(console.warn));
+</script>
+</body>
+</html>
