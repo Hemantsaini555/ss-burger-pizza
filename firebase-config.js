@@ -1,7 +1,7 @@
 // Paste your Firebase Web API key below before publishing.
 // The other project values are already filled in from your Firebase project.
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_FIREBASE_WEB_API_KEY_HERE",
+  apiKey: "AIzaSyC56l8HRJhbknBRoeo9co8-xTDZMyuINcQ",
   authDomain: "ss-burger-pizza-5d4fb.firebaseapp.com",
   projectId: "ss-burger-pizza-5d4fb",
   storageBucket: "ss-burger-pizza-5d4fb.firebasestorage.app",
